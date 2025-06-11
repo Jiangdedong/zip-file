@@ -201,3 +201,12 @@ footer {
 .el-tree__empty-text {
   color: white !important;
 }
+.tooltip-content {
+  cursor: pointer;
+}
+.tooltip-content>div {
+  line-height: 24px;
+}
+.tooltip-content>div:hover {
+  color: #f44336;
+}

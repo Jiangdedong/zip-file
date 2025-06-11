@@ -12,8 +12,20 @@
           <i>📁</i>
           <p>拖放文件或文件夹到此处</p>
           <p>或</p>
-          <button ref="browseBtn" class="btn" @click="fileInput.click()">选择文件</button>
-          <input ref="fileInput" type="file" class="file-input" multiple webkitdirectory @change="(e) =>handleFiles(e.target.files)" />
+          <el-tooltip
+            effect="dark"
+            placement="top"
+          >
+            <button ref="browseBtn" class="btn">操作</button>
+            <template #content>
+              <div class="tooltip-content">
+                <div @click="fileInput.click()">选择文件</div>
+                <div @click="fileFolderInput.click()">选择文件夹</div>
+              </div>
+            </template>
+          </el-tooltip>
+          <input ref="fileFolderInput" type="file" class="file-input" multiple webkitdirectory @change="(e) =>handleFiles(e.target.files)" />
+          <input ref="fileInput" type="file" class="file-input" multiple @change="(e) =>handleFiles(e.target.files)" />
         </div>
       </div>
 
@@ -42,8 +54,8 @@
     </div>
 
     <div class="actions">
-      <button class="btn btn-download" id="downloadBtn" disabled>下载 ZIP 文件</button>
-      <button class="btn btn-clear" id="clearBtn">清除所有</button>
+      <button class="btn btn-download" :disabled="!fileCount" @click="downloadZip">下载 ZIP 文件</button>
+      <button class="btn btn-clear" @click="clearAll">清除所有</button>
     </div>
 
     <footer>
@@ -56,10 +68,12 @@
 import JSZip from 'jszip'
 import { nanoid } from 'nanoid'
 import { ref, watch, computed } from 'vue'
+import { ElMessageBox , ElMessage } from 'element-plus'
 
 const dropZone = ref(null)
 const browseBtn = ref(null)
 const fileInput = ref(null)
+const fileFolderInput = ref(null)
 
 const fileCount = ref(0)
 const folderCount = ref(0)
@@ -68,7 +82,7 @@ const treeData = ref([])
 
 let files = []
 
-function handleDropFiles(fileList) {
+function handleDropFiles(e) {
   if (e.dataTransfer.items) {
     // 处理文件夹拖放
     const items = e.dataTransfer.items;
@@ -155,6 +169,9 @@ function convertPathsToTree (paths) {
         
         if (!isFile) {
           node.children = [];
+          folderCount.value++;
+        } else {
+          fileCount.value++;
         }
         
         currentLevel.children.push(node);
@@ -166,4 +183,43 @@ function convertPathsToTree (paths) {
   
   return root.children || [];
 };
+function downloadZip() {
+  if (files.length === 0) {
+    return;
+  }
+
+  ElMessageBox.prompt('请输入压缩文件名称', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    inputValidator: (value) => {
+      if (!value) {
+        return '压缩文件名称不能为空';
+      }
+      return true;
+    },
+    inputValue: 'zip-file',
+  }).then(({ value }) => {
+    const zip = new JSZip();
+    files.forEach(item => {
+      zip.file(item.path, item.file);
+    });
+
+    zip.generateAsync({ type: 'blob' }).then(content => {
+      const url = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${value}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  }).catch(() => {})
+}
+function clearAll() {
+  files = [];
+  treeData.value = [];
+  fileCount.value = 0;
+  folderCount.value = 0;
+}
 </script>
